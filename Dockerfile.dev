@@ -21,8 +21,15 @@ RUN curl -fsSL "https://services.gradle.org/distributions/gradle-${GRADLE_VERSIO
   && ln -s "/opt/gradle-${GRADLE_VERSION}/bin/gradle" /usr/local/bin/gradle \
   && rm -f /tmp/gradle.zip
 
-RUN groupadd --gid "${GID}" "${USERNAME}" \
-  && useradd --uid "${UID}" --gid "${GID}" --create-home "${USERNAME}"
+RUN set -eux; \
+  uid="${UID}"; \
+  gid="${GID}"; \
+  case "${uid}" in ''|*[!0-9]*) uid=1000 ;; esac; \
+  case "${gid}" in ''|*[!0-9]*) gid=1000 ;; esac; \
+  if ! getent group "${gid}" >/dev/null; then \
+    groupadd --gid "${gid}" "${USERNAME}"; \
+  fi; \
+  useradd --uid "${uid}" --gid "${gid}" --create-home "${USERNAME}"
 
 USER ${USERNAME}
 WORKDIR /workspace

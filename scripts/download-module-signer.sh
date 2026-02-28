@@ -23,7 +23,7 @@ download_from_url() {
 }
 
 resolve_latest_from_nexus() {
-  local group_path metadata_url metadata version artifact_url
+  local group_path metadata_url metadata version artifact_base deps_url plain_url
   group_path="${group_id//./\/}"
   metadata_url="${nexus_base%/}/${group_path}/${artifact_id}/maven-metadata.xml"
   metadata="$(curl -fsSL "$metadata_url")"
@@ -40,8 +40,13 @@ resolve_latest_from_nexus() {
     return 1
   fi
 
-  artifact_url="${nexus_base%/}/${group_path}/${artifact_id}/${version}/${artifact_id}-${version}.jar"
-  download_from_url "$artifact_url"
+  artifact_base="${nexus_base%/}/${group_path}/${artifact_id}/${version}/${artifact_id}-${version}"
+  deps_url="${artifact_base}-jar-with-dependencies.jar"
+  plain_url="${artifact_base}.jar"
+
+  if ! download_from_url "$deps_url"; then
+    download_from_url "$plain_url"
+  fi
 }
 
 if [[ -n "$direct_url" ]]; then

@@ -21,6 +21,9 @@ Thumbs.db
 **/build/
 out/
 
+# Generated/scaffolded modules (local workspace only)
+modules/
+
 # Module signing artifacts (generated locally)
 certs/
 *.p12

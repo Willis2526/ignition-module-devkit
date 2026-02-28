@@ -44,7 +44,20 @@ module_url="https://example.com/${module_slug}"
 mkdir -p "$module_dir/common/src/main/java/$package_path/common"
 mkdir -p "$module_dir/gateway/src/main/java/$package_path/gateway"
 
+cat > "$module_dir/LICENSE.txt" <<EOF2
+Apache-2.0
+EOF2
+
 cat > "$module_dir/settings.gradle.kts" <<EOF2
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven {
+            url = uri("https://nexus.inductiveautomation.com/repository/public/")
+        }
+    }
+}
+
 rootProject.name = "${module_dir}"
 
 include(":common")
@@ -58,10 +71,14 @@ moduleName=${module_name}
 moduleVersion=0.1.0
 moduleDescription=${module_desc}
 moduleProjectUrl=${module_url}
-moduleLicense=Apache-2.0
+moduleLicense=LICENSE.txt
+moduleFree=true
 EOF2
 
 cat > "$module_dir/build.gradle.kts" <<EOF2
+import org.gradle.api.plugins.JavaPluginExtension
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+
 plugins {
     id("io.ia.sdk.modl") version "0.5.0"
 }
@@ -69,12 +86,13 @@ plugins {
 group = "${module_package}"
 
 val ignitionVersion: String by project
-val moduleId: String by project
-val moduleName: String by project
-val moduleVersion: String by project
-val moduleDescription: String by project
-val moduleProjectUrl: String by project
-val moduleLicense: String by project
+val moduleIdProp = providers.gradleProperty("moduleId")
+val moduleNameProp = providers.gradleProperty("moduleName")
+val moduleVersionProp = providers.gradleProperty("moduleVersion")
+val moduleDescriptionProp = providers.gradleProperty("moduleDescription")
+val moduleProjectUrlProp = providers.gradleProperty("moduleProjectUrl")
+val moduleLicenseProp = providers.gradleProperty("moduleLicense")
+val moduleFreeProp = providers.gradleProperty("moduleFree").map { it.toBoolean() }.orElse(true)
 
 allprojects {
     repositories {
@@ -86,9 +104,8 @@ allprojects {
 }
 
 subprojects {
-    apply(plugin = "java-library")
-
-    java {
+    plugins.apply("java-library")
+    extensions.configure<JavaPluginExtension> {
         toolchain {
             languageVersion.set(JavaLanguageVersion.of(17))
         }
@@ -96,12 +113,14 @@ subprojects {
 }
 
 ignitionModule {
-    name.set(moduleName)
-    id.set(moduleId)
-    moduleVersion.set(moduleVersion)
-    description.set(moduleDescription)
-    projectUrl.set(moduleProjectUrl)
-    license.set(moduleLicense)
+    name.set(moduleNameProp)
+    id.set(moduleIdProp)
+    moduleVersion.set(moduleVersionProp)
+    this.moduleDescription.set(moduleDescriptionProp)
+    freeModule.set(moduleFreeProp)
+    license.set(moduleLicenseProp)
+    skipModlSigning.set(true)
+    metaInfo.put("projectUrl", moduleProjectUrlProp)
 
     hooks.putAll(
         mapOf(
@@ -150,22 +169,26 @@ EOF2
 cat > "$module_dir/gateway/src/main/java/$package_path/gateway/${class_prefix}GatewayHook.java" <<EOF2
 package ${module_package}.gateway;
 
+import com.inductiveautomation.ignition.common.licensing.LicenseState;
 import com.inductiveautomation.ignition.gateway.model.AbstractGatewayModuleHook;
+import com.inductiveautomation.ignition.gateway.model.GatewayContext;
 
 public class ${class_prefix}GatewayHook extends AbstractGatewayModuleHook {
+    private GatewayContext context;
+
     @Override
-    public void setup(com.inductiveautomation.ignition.gateway.model.GatewayContext context) {
-        context.getLogger().info("${module_name} setup complete");
+    public void setup(GatewayContext context) {
+        this.context = context;
     }
 
     @Override
-    public void startup(com.inductiveautomation.ignition.gateway.model.GatewayContext context) {
-        context.getLogger().info("${module_name} started");
+    public void startup(LicenseState activationState) {
+        // No-op
     }
 
     @Override
     public void shutdown() {
-        // No-op
+        this.context = null;
     }
 }
 EOF2

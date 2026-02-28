@@ -9,7 +9,7 @@ This project provides a Docker Compose-based development environment for buildin
 - Non-root container user (configurable UID/GID)
 - Persistent Gradle and Maven caches
 - `make scaffold-module` generator for creating new module scaffolds on demand
-- Starter module scaffolds at `example-module/` and `bare-module/`
+- Modules are scaffolded under `modules/` for organization
 - `make cert-generate` helper to create local signing cert assets
 - `make signer-download` helper to fetch latest IA module-signer jar from IA Nexus
 - `make module-set-license` helper to adjust module licensing mode
@@ -18,6 +18,24 @@ This project provides a Docker Compose-based development environment for buildin
 ## Prerequisites
 
 - Docker Engine + Docker Compose v2
+
+## Recommended workflow (fork + track your module)
+
+1. Fork this repository to your own Git hosting account.
+2. Clone your fork locally and create a feature branch.
+3. Scaffold your module under `modules/` using the commands below.
+4. When you are ready to version your module in your fork, remove `modules/` from `.gitignore`.
+
+Example:
+
+```bash
+git clone <your-fork-url>
+cd ignition-module-devkit
+git checkout -b my-module
+sed -i '/^modules\/$/d' .gitignore
+git add .gitignore modules/
+git commit -m "Track modules in this fork"
+```
 
 ## Files
 
@@ -29,8 +47,6 @@ This project provides a Docker Compose-based development environment for buildin
 - `scripts/download-module-signer.sh`
 - `scripts/set-module-license.sh`
 - `scripts/sign-module.sh`
-- `example-module/`
-- `bare-module/`
 
 ## Quick start
 
@@ -40,11 +56,11 @@ This project provides a Docker Compose-based development environment for buildin
 cp .env.example .env
 ```
 
-2. On Linux, set your host UID/GID in `.env` to avoid permissions issues:
+2. On Linux, write your host UID/GID values into `.env` to avoid permissions issues:
 
 ```bash
-UID=$(id -u)
-GID=$(id -g)
+sed -i "s/^UID=.*/UID=$(id -u)/" .env
+sed -i "s/^GID=.*/GID=$(id -g)/" .env
 ```
 
 3. Build and start the dev container:
@@ -54,30 +70,65 @@ docker compose build dev
 docker compose up -d dev
 ```
 
-4. Build the default starter module (`example-module`):
+4. Create a hello-world module scaffold:
 
 ```bash
-make module-build
+make scaffold-module MODULE_DIR=hello-world-module MODULE_ID=com.example.helloworld MODULE_NAME=HelloWorld MODULE_PACKAGE=com.example.helloworld
 ```
 
-## Build output
-
-The generated module package (`.modl`) is created under `<module>/build/` for whichever module you build.
-
-## Use your own module instead of starter scaffolds
-
-You can remove a starter scaffold (for example `bare-module`) and regenerate it or create a new one at any time:
+5. Build it:
 
 ```bash
-rm -rf bare-module
-make scaffold-module MODULE_DIR=bare-module MODULE_ID=com.example.baremodule MODULE_NAME=BareModule
+make module-build MODULE_DIR=hello-world-module
 ```
 
-Build any module directory with:
+Scaffolds are created under `modules/` (for example `modules/hello-world-module`).
+By default, `.gitignore` ignores `modules/` so generated module workspaces stay local.
+
+## Hello World walkthrough: compile, sign, and deploy
+
+1. Create the module scaffold:
 
 ```bash
-make module-build MODULE_DIR=your-module-folder
+make scaffold-module MODULE_DIR=hello-world-module MODULE_ID=com.example.helloworld MODULE_NAME=HelloWorld MODULE_PACKAGE=com.example.helloworld
 ```
+
+2. Set license mode to free:
+
+```bash
+make module-set-license MODULE_DIR=hello-world-module MODULE_LICENSE_MODE=free
+```
+
+3. If you want paid/commercial behavior, switch to a paid-oriented mode:
+
+```bash
+make module-set-license MODULE_DIR=hello-world-module MODULE_LICENSE_MODE=proprietary
+```
+
+4. Compile the module:
+
+```bash
+make module-build MODULE_DIR=hello-world-module
+```
+
+Build output (`.modl`) is generated under `modules/hello-world-module/build/`.
+
+5. Generate signing assets and sign:
+
+```bash
+make cert-generate
+make sign-module MODULE_DIR=hello-world-module
+```
+
+The signed artifact is written to `modules/hello-world-module/build/` as `*.signed.modl`.
+
+6. Start a local gateway and deploy:
+
+```bash
+docker compose --profile gateway up -d gateway
+```
+
+Then open `http://localhost:18088`, sign in, go to `Config -> Modules -> Install or Upgrade`, and upload the `*.signed.modl` file.
 
 ## Optional gateway for testing
 
@@ -112,10 +163,8 @@ make dev-up
 make dev-shell
 make scaffold-module MODULE_DIR=my-module MODULE_ID=com.acme.mymodule MODULE_NAME=MyModule
 make module-build
-make module-build-example
-make module-build-bare
 make module-build MODULE_DIR=my-module
-make module-set-license MODULE_DIR=my-module MODULE_LICENSE_MODE=trial
+make module-set-license MODULE_DIR=my-module MODULE_LICENSE_MODE=free
 make cert-generate
 make signer-download
 make sign-help
@@ -129,12 +178,10 @@ make down
 - `make help` lists all available targets.
 - `make dev-build`, `make dev-up`, `make dev-shell` handle normal dev container flow.
 - `make scaffold-module ...` creates a new compile-ready module scaffold.
-- `make module-build` compiles the module at `MODULE_DIR` (defaults to `example-module`).
-- `make module-build-example` compiles `example-module`.
-- `make module-build-bare` compiles `bare-module`.
-- `make module-build MODULE_DIR=my-module` compiles your own module folder (must contain a valid Gradle module project).
-- `make module-clean MODULE_DIR=my-module` cleans your own module folder.
-- `make module-set-license ...` updates `moduleLicense` in `<module>/gradle.properties`.
+- `make module-build` compiles the module at `modules/MODULE_DIR` (defaults to `modules/hello-world-module`).
+- `make module-build MODULE_DIR=my-module` compiles `modules/my-module` (or pass `MODULE_DIR=modules/my-module`).
+- `make module-clean MODULE_DIR=my-module` cleans `modules/my-module`.
+- `make module-set-license ...` updates `moduleLicense` in `modules/<module>/gradle.properties`.
 - `make cert-generate` creates a local self-signed cert + PKCS12 + PKCS7 chain in `certs/`.
 - `make signer-download` fetches the latest IA `module-signer.jar` into `tools/` using IA Nexus metadata.
 - `make sign-help` shows required signing variables.
@@ -159,6 +206,7 @@ make scaffold-module \
 License mode examples:
 
 ```bash
+make module-set-license MODULE_DIR=my-module MODULE_LICENSE_MODE=free
 make module-set-license MODULE_DIR=my-module MODULE_LICENSE_MODE=apache
 make module-set-license MODULE_DIR=my-module MODULE_LICENSE_MODE=proprietary
 make module-set-license MODULE_DIR=my-module MODULE_LICENSE_MODE=trial
@@ -193,7 +241,7 @@ Notes:
 - If `tools/module-signer.jar` is missing, `make sign-module` auto-downloads the latest signer from IA Nexus.
 - To prefetch the jar explicitly, run `make signer-download`.
 - If needed, you can override signer source variables (`MODULE_SIGNER_NEXUS_BASE`, `MODULE_SIGNER_GROUP_ID`, `MODULE_SIGNER_ARTIFACT_ID`, `MODULE_SIGNER_FALLBACK_URL`).
-- If `MODULE_IN` is omitted, the newest `*.unsigned.modl` under `<module>/build` is used automatically.
+- If `MODULE_IN` is omitted, the newest `*.unsigned.modl` under `modules/<module>/build` is used automatically.
 - If `MODULE_OUT` is omitted, output defaults to `<input>.signed.modl`.
 - To customize cert generation, run `make cert-help`.
 - To inspect signing variable defaults, run `make sign-help`.
@@ -230,3 +278,87 @@ You can either:
 
 - The gateway is configured for developer testing (unsigned module and developer upload flags enabled).
 - The gateway image defaults to `inductiveautomation/ignition:latest` unless `IGNITION_VERSION` is set.
+
+## Troubleshooting
+
+### `permission denied while trying to connect to the docker API at unix:///var/run/docker.sock`
+
+Your user does not have permission to access the Docker daemon socket.
+
+Temporary workaround:
+
+```bash
+sudo docker compose build dev
+```
+
+Recommended fix (Linux):
+
+```bash
+sudo usermod -aG docker $USER
+newgrp docker
+docker ps
+docker compose build dev
+```
+
+If `docker ps` still fails after `newgrp docker`, log out and back in (or reboot) and retry.
+
+### `docker: command not found` or `docker compose` fails
+
+Install Docker Engine and Docker Compose v2, then verify:
+
+```bash
+docker --version
+docker compose version
+```
+
+### `Cannot connect to the Docker daemon`
+
+Docker is installed but the daemon is not running.
+
+```bash
+sudo systemctl status docker
+sudo systemctl start docker
+docker ps
+```
+
+### `service "dev" is not running` when using `docker compose exec` / `make module-build`
+
+Start the dev container first:
+
+```bash
+docker compose up -d dev
+docker compose ps
+```
+
+### Host file ownership/permissions look wrong after container actions (Linux)
+
+Set host UID/GID in `.env`, rebuild, and restart:
+
+```bash
+cp .env.example .env
+sed -i "s/^UID=.*/UID=$(id -u)/" .env
+sed -i "s/^GID=.*/GID=$(id -g)/" .env
+docker compose build --no-cache dev
+docker compose up -d dev
+```
+
+If `.env` already exists, update `UID`/`GID` values instead of appending duplicates.
+
+### Gateway container fails to start because ports are in use
+
+The project maps:
+- `18088 -> 8088` (Gateway web UI)
+- `18000 -> 8000` (Gateway network port)
+
+Find and stop the conflicting process, or change the host-side ports in `docker-compose.yml`.
+
+### Build fails with low disk space / cache issues
+
+Clean unused Docker data, then rebuild:
+
+```bash
+docker system df
+docker system prune -f
+docker volume prune -f
+docker compose build dev
+```

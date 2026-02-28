@@ -1,9 +1,11 @@
-MODULE_DIR ?= example-module
+MODULE_DIR ?= hello-world-module
+MODULES_DIR ?= modules
+MODULE_PATH := $(if $(filter $(MODULES_DIR)/%,$(MODULE_DIR)),$(MODULE_DIR),$(MODULES_DIR)/$(MODULE_DIR))
 MODULE_ID ?= com.example.mymodule
 MODULE_NAME ?= MyModule
 MODULE_PACKAGE ?= $(MODULE_ID)
 IGNITION_SDK_VERSION ?= 8.1.52
-MODULE_LICENSE_MODE ?= apache
+MODULE_LICENSE_MODE ?= free
 MODULE_LICENSE ?=
 
 CERT_DIR ?= certs
@@ -25,7 +27,7 @@ CERT_CHAIN_PATH ?= $(CERT_DIR)/$(CERT_NAME).chain.p7b
 MODULE_IN ?=
 MODULE_OUT ?=
 
-.PHONY: help dev-build dev-up dev-shell dev-stop dev-restart scaffold-module module-set-license module-build module-clean module-build-example module-build-bare cert-help cert-generate signer-download sign-help sign-module verify ps logs-dev logs-gateway gateway gateway-latest gateway-8-1-52 gateway-stop down
+.PHONY: help dev-build dev-up dev-shell dev-stop dev-restart scaffold-module module-set-license module-build module-clean cert-help cert-generate signer-download sign-help sign-module verify ps logs-dev logs-gateway gateway gateway-latest gateway-8-1-52 gateway-stop down
 
 help:
 	@echo "Available targets:"
@@ -36,10 +38,8 @@ help:
 	@echo "  dev-restart     Restart dev container"
 	@echo "  scaffold-module Generate a new module scaffold"
 	@echo "  module-set-license Update moduleLicense in gradle.properties"
-	@echo "  module-build    Build module at MODULE_DIR (default: example-module)"
-	@echo "  module-clean    Clean module at MODULE_DIR (default: example-module)"
-	@echo "  module-build-example  Build example-module scaffold"
-	@echo "  module-build-bare     Build bare-module scaffold"
+	@echo "  module-build    Build module at MODULE_PATH (default: modules/hello-world-module)"
+	@echo "  module-clean    Clean module at MODULE_PATH (default: modules/hello-world-module)"
 	@echo "  cert-help       Show certificate generation variables"
 	@echo "  cert-generate   Generate local signing certificate/keystore assets"
 	@echo "  signer-download Download latest IA module-signer jar"
@@ -71,22 +71,16 @@ dev-restart:
 	docker compose restart dev
 
 scaffold-module:
-	./scripts/scaffold-module.sh "$(MODULE_DIR)" "$(MODULE_ID)" "$(MODULE_NAME)" "$(MODULE_PACKAGE)" "$(IGNITION_SDK_VERSION)"
+	./scripts/scaffold-module.sh "$(MODULE_PATH)" "$(MODULE_ID)" "$(MODULE_NAME)" "$(MODULE_PACKAGE)" "$(IGNITION_SDK_VERSION)"
 
 module-set-license:
-	./scripts/set-module-license.sh "$(MODULE_DIR)" "$(MODULE_LICENSE_MODE)" "$(MODULE_LICENSE)"
+	./scripts/set-module-license.sh "$(MODULE_PATH)" "$(MODULE_LICENSE_MODE)" "$(MODULE_LICENSE)"
 
 module-build:
-	docker compose exec dev bash -lc 'cd /workspace/$(MODULE_DIR) && gradle clean build'
+	docker compose exec dev bash -lc 'cd /workspace/$(MODULE_PATH) && gradle clean build'
 
 module-clean:
-	docker compose exec dev bash -lc 'cd /workspace/$(MODULE_DIR) && gradle clean'
-
-module-build-example:
-	$(MAKE) module-build MODULE_DIR=example-module
-
-module-build-bare:
-	$(MAKE) module-build MODULE_DIR=bare-module
+	docker compose exec dev bash -lc 'cd /workspace/$(MODULE_PATH) && gradle clean'
 
 cert-help:
 	@echo "Certificate generation vars:"
@@ -105,7 +99,8 @@ signer-download:
 
 sign-help:
 	@echo "Required vars for sign-module:"
-	@echo "  MODULE_DIR         Module directory to sign (default: example-module)"
+	@echo "  MODULE_DIR         Module name/path under modules/ (default: hello-world-module)"
+	@echo "                     Effective module path: $(MODULE_PATH)"
 	@echo "  MODULE_SIGNER_JAR  Path to module-signer jar (default: tools/module-signer.jar)"
 	@echo "                     Auto-downloaded if missing from IA Nexus latest metadata."
 	@echo "  MODULE_SIGNER_NEXUS_BASE  Nexus releases repo base URL"
@@ -126,7 +121,7 @@ sign-module:
 		echo "Missing required signing vars. Run 'make sign-help'."; \
 		exit 1; \
 	fi
-	./scripts/sign-module.sh "$(MODULE_DIR)" "$(MODULE_SIGNER_JAR)" "$(KEYSTORE_PATH)" "$(KEYSTORE_PASSWORD)" "$(KEY_ALIAS)" "$(ALIAS_PASSWORD)" "$(CERT_CHAIN_PATH)" "$(MODULE_IN)" "$(MODULE_OUT)"
+	./scripts/sign-module.sh "$(MODULE_PATH)" "$(MODULE_SIGNER_JAR)" "$(KEYSTORE_PATH)" "$(KEYSTORE_PASSWORD)" "$(KEY_ALIAS)" "$(ALIAS_PASSWORD)" "$(CERT_CHAIN_PATH)" "$(MODULE_IN)" "$(MODULE_OUT)"
 
 verify:
 	docker compose exec dev java -version
