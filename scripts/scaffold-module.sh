@@ -2,8 +2,9 @@
 set -euo pipefail
 
 if [[ $# -lt 3 || $# -gt 5 ]]; then
-  echo "Usage: $0 <module_dir> <module_id> <module_name> [module_package] [ignition_version]" >&2
-  echo "Example: $0 my-module com.acme.mymodule MyModule com.acme.mymodule 8.1.52" >&2
+  echo "Usage: $0 <module_dir> <module_id> <module_name> [module_package] [ignition_version|latest]" >&2
+  echo "Example: $0 my-module com.acme.mymodule MyModule com.acme.mymodule 8.3.3" >&2
+  echo "Example: $0 my-module com.acme.mymodule MyModule com.acme.mymodule latest" >&2
   exit 1
 fi
 
@@ -11,8 +12,37 @@ module_dir="$1"
 module_id="$2"
 module_name="$3"
 module_package="${4:-$module_id}"
-ignition_version="${5:-8.1.52}"
+ignition_version="${5:-latest}"
 module_project_name="$(basename "$module_dir")"
+ignition_sdk_nexus_base="${IGNITION_SDK_NEXUS_BASE:-https://nexus.inductiveautomation.com/repository/public}"
+ignition_sdk_group_id="${IGNITION_SDK_GROUP_ID:-com.inductiveautomation.ignitionsdk}"
+ignition_sdk_artifact_id="${IGNITION_SDK_ARTIFACT_ID:-ignition-common}"
+
+resolve_latest_ignition_sdk_version() {
+  local group_path metadata_url metadata version
+  group_path="${ignition_sdk_group_id//./\/}"
+  metadata_url="${ignition_sdk_nexus_base%/}/${group_path}/${ignition_sdk_artifact_id}/maven-metadata.xml"
+  metadata="$(curl -fsSL "$metadata_url")"
+
+  version="$(printf '%s' "$metadata" | sed -n 's|.*<release>\(.*\)</release>.*|\1|p' | head -n 1)"
+  if [[ -z "$version" ]]; then
+    version="$(printf '%s' "$metadata" | sed -n 's|.*<latest>\(.*\)</latest>.*|\1|p' | head -n 1)"
+  fi
+  if [[ -z "$version" ]]; then
+    version="$(printf '%s' "$metadata" | sed -n 's|.*<version>\(.*\)</version>.*|\1|p' | tail -n 1)"
+  fi
+  if [[ -z "$version" ]]; then
+    echo "Error: could not resolve latest Ignition SDK version from $metadata_url" >&2
+    return 1
+  fi
+
+  printf '%s' "$version"
+}
+
+if [[ -z "$ignition_version" || "$ignition_version" == "latest" ]]; then
+  ignition_version="$(resolve_latest_ignition_sdk_version)"
+  echo "Resolved latest Ignition SDK version: $ignition_version"
+fi
 
 if [[ -e "$module_dir" ]]; then
   echo "Error: target directory '$module_dir' already exists." >&2
@@ -118,6 +148,7 @@ ignitionModule {
     id.set(moduleIdProp)
     moduleVersion.set(moduleVersionProp)
     this.moduleDescription.set(moduleDescriptionProp)
+    requiredIgnitionVersion.set(ignitionVersion)
     freeModule.set(moduleFreeProp)
     license.set(moduleLicenseProp)
     skipModlSigning.set(true)
@@ -125,7 +156,7 @@ ignitionModule {
 
     hooks.putAll(
         mapOf(
-            "G" to "${module_package}.gateway.${class_prefix}GatewayHook"
+            "${module_package}.gateway.${class_prefix}GatewayHook" to "G"
         )
     )
 

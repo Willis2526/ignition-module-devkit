@@ -180,6 +180,7 @@ make reset
 - `make help` lists all available targets.
 - `make dev-build`, `make dev-up`, `make dev-shell` handle normal dev container flow.
 - `make scaffold-module ...` creates a new compile-ready module scaffold.
+- `make scaffold-module ...` defaults `IGNITION_SDK_VERSION` to `latest`; set `IGNITION_SDK_VERSION=x.y.z` to pin.
 - `make module-build` compiles the module at `modules/MODULE_DIR` (defaults to `modules/hello-world-module`).
 - `make module-build MODULE_DIR=my-module` compiles `modules/my-module` (or pass `MODULE_DIR=modules/my-module`).
 - `make module-clean MODULE_DIR=my-module` cleans `modules/my-module`.
@@ -203,8 +204,10 @@ make scaffold-module \
   MODULE_DIR=my-module \
   MODULE_ID=com.acme.mymodule \
   MODULE_NAME=MyModule \
-  MODULE_PACKAGE=com.acme.mymodule \
-  IGNITION_SDK_VERSION=8.1.52
+  MODULE_PACKAGE=com.acme.mymodule
+
+# Optional: pin SDK/requiredIgnitionVersion instead of using latest
+make scaffold-module MODULE_DIR=my-module IGNITION_SDK_VERSION=8.3.3
 ```
 
 License mode examples:
@@ -349,6 +352,26 @@ Recover with:
 ```bash
 make gradle-reset
 make dev-up
+make module-build MODULE_DIR=hello-world-module
+```
+
+### Module install error: `can't access property "moduleId", s is null`
+
+This is typically caused by an invalid `<hook>` entry in `module.xml` where the scope and hook class are swapped.
+
+In your module root `build.gradle.kts`, verify the `hooks` mapping uses:
+
+```kotlin
+hooks.putAll(
+    mapOf(
+        "com.example.yourmodule.gateway.YourGatewayHook" to "G"
+    )
+)
+```
+
+Then rebuild and upload the new `.modl`:
+
+```bash
 make module-build MODULE_DIR=hello-world-module
 ```
 
