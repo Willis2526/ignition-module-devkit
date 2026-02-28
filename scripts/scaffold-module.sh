@@ -12,6 +12,7 @@ module_id="$2"
 module_name="$3"
 module_package="${4:-$module_id}"
 ignition_version="${5:-8.1.52}"
+module_project_name="$(basename "$module_dir")"
 
 if [[ -e "$module_dir" ]]; then
   echo "Error: target directory '$module_dir' already exists." >&2
@@ -58,7 +59,7 @@ pluginManagement {
     }
 }
 
-rootProject.name = "${module_dir}"
+rootProject.name = "${module_project_name}"
 
 include(":common")
 include(":gateway")

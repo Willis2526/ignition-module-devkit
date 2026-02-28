@@ -164,6 +164,7 @@ make dev-shell
 make scaffold-module MODULE_DIR=my-module MODULE_ID=com.acme.mymodule MODULE_NAME=MyModule
 make module-build
 make module-build MODULE_DIR=my-module
+make gradle-reset
 make module-set-license MODULE_DIR=my-module MODULE_LICENSE_MODE=free
 make cert-generate
 make signer-download
@@ -173,6 +174,7 @@ make gateway-latest
 make gateway-8-1-52
 make gateway-stop
 make down
+make reset
 ```
 
 - `make help` lists all available targets.
@@ -181,6 +183,7 @@ make down
 - `make module-build` compiles the module at `modules/MODULE_DIR` (defaults to `modules/hello-world-module`).
 - `make module-build MODULE_DIR=my-module` compiles `modules/my-module` (or pass `MODULE_DIR=modules/my-module`).
 - `make module-clean MODULE_DIR=my-module` cleans `modules/my-module`.
+- `make gradle-reset` removes compose containers and Gradle/Maven cache volumes.
 - `make module-set-license ...` updates `moduleLicense` in `modules/<module>/gradle.properties`.
 - `make cert-generate` creates a local self-signed cert + PKCS12 + PKCS7 chain in `certs/`.
 - `make signer-download` fetches the latest IA `module-signer.jar` into `tools/` using IA Nexus metadata.
@@ -191,6 +194,7 @@ make down
 - `make gateway-8-1-52` starts gateway pinned to `8.1.52`.
 - `make gateway-stop` stops the gateway container.
 - `make down` stops all services.
+- `make reset` fully resets compose state (containers, named volumes, local compose-built images) and runs `make gradle-reset`.
 
 Scaffold example:
 
@@ -267,6 +271,12 @@ Stop all running services:
 docker compose down
 ```
 
+Full reset (remove containers, volumes, and local compose images):
+
+```bash
+docker compose --profile gateway down --volumes --remove-orphans --rmi local
+```
+
 ## VS Code usage
 
 You can either:
@@ -328,6 +338,27 @@ Start the dev container first:
 ```bash
 docker compose up -d dev
 docker compose ps
+```
+
+### `Failed to load native library 'libnative-platform.so' for Linux amd64`
+
+This is usually a broken/corrupted Gradle native cache inside the Docker volume used by the dev container.
+
+Recover with:
+
+```bash
+make gradle-reset
+make dev-up
+make module-build MODULE_DIR=hello-world-module
+```
+
+If it still fails, do a full reset and rebuild:
+
+```bash
+make reset
+make dev-build
+make dev-up
+make module-build MODULE_DIR=hello-world-module
 ```
 
 ### Host file ownership/permissions look wrong after container actions (Linux)

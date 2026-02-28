@@ -27,7 +27,7 @@ CERT_CHAIN_PATH ?= $(CERT_DIR)/$(CERT_NAME).chain.p7b
 MODULE_IN ?=
 MODULE_OUT ?=
 
-.PHONY: help dev-build dev-up dev-shell dev-stop dev-restart scaffold-module module-set-license module-build module-clean cert-help cert-generate signer-download sign-help sign-module verify ps logs-dev logs-gateway gateway gateway-latest gateway-8-1-52 gateway-stop down
+.PHONY: help dev-build dev-up dev-shell dev-stop dev-restart scaffold-module module-set-license module-build module-clean gradle-reset cert-help cert-generate signer-download sign-help sign-module verify ps logs-dev logs-gateway gateway gateway-latest gateway-8-1-52 gateway-stop down reset
 
 help:
 	@echo "Available targets:"
@@ -40,6 +40,7 @@ help:
 	@echo "  module-set-license Update moduleLicense in gradle.properties"
 	@echo "  module-build    Build module at MODULE_PATH (default: modules/hello-world-module)"
 	@echo "  module-clean    Clean module at MODULE_PATH (default: modules/hello-world-module)"
+	@echo "  gradle-reset    Remove compose containers and Gradle/Maven cache volumes"
 	@echo "  cert-help       Show certificate generation variables"
 	@echo "  cert-generate   Generate local signing certificate/keystore assets"
 	@echo "  signer-download Download latest IA module-signer jar"
@@ -54,6 +55,7 @@ help:
 	@echo "  gateway-8-1-52  Start gateway with IGNITION_VERSION=8.1.52"
 	@echo "  gateway-stop    Stop gateway container"
 	@echo "  down            Stop and remove compose services"
+	@echo "  reset           Full reset: remove containers, volumes, and local compose images"
 
 dev-build:
 	docker compose build dev
@@ -81,6 +83,9 @@ module-build:
 
 module-clean:
 	docker compose exec dev bash -lc 'cd /workspace/$(MODULE_PATH) && gradle clean'
+
+gradle-reset:
+	docker compose --profile gateway down --volumes --remove-orphans
 
 cert-help:
 	@echo "Certificate generation vars:"
@@ -151,3 +156,7 @@ gateway-stop:
 
 down:
 	docker compose down
+
+reset:
+	docker compose --profile gateway down --volumes --remove-orphans --rmi local
+	$(MAKE) gradle-reset

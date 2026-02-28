@@ -29,7 +29,9 @@ RUN set -eux; \
   if ! getent group "${gid}" >/dev/null; then \
     groupadd --gid "${gid}" "${USERNAME}"; \
   fi; \
-  useradd --uid "${uid}" --gid "${gid}" --create-home "${USERNAME}"
+  useradd --uid "${uid}" --gid "${gid}" --create-home "${USERNAME}"; \
+  mkdir -p "/home/${USERNAME}/.gradle" "/home/${USERNAME}/.m2"; \
+  chown -R "${uid}:${gid}" "/home/${USERNAME}/.gradle" "/home/${USERNAME}/.m2"
 
 USER ${USERNAME}
 WORKDIR /workspace
