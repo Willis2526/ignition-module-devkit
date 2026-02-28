@@ -1,0 +1,36 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Java/Gradle
+.gradle/
+**/build/
+out/
+
+# Module signing artifacts (generated locally)
+certs/
+*.p12
+*.p7b
+*.pem
+*.signed.modl
+*.unsigned.modl
+
+# Official signer binary (local download)
+tools/
+
+# Temporary files
+*.tmp

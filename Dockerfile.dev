@@ -1,0 +1,33 @@
+FROM eclipse-temurin:17-jdk-jammy@sha256:2d05c919f87a3ebcd4853d595f323f75b05f545bf61bf3ad811cdfaa1d8ae328
+
+ARG UID=1000
+ARG GID=1000
+ARG USERNAME=dev
+ARG GRADLE_VERSION=8.10.2
+
+RUN apt-get update \
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    git \
+    ca-certificates \
+    curl \
+    unzip \
+    zip \
+    bash \
+    openssh-client \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" -o /tmp/gradle.zip \
+  && unzip -q /tmp/gradle.zip -d /opt \
+  && ln -s "/opt/gradle-${GRADLE_VERSION}/bin/gradle" /usr/local/bin/gradle \
+  && rm -f /tmp/gradle.zip
+
+RUN groupadd --gid "${GID}" "${USERNAME}" \
+  && useradd --uid "${UID}" --gid "${GID}" --create-home "${USERNAME}"
+
+USER ${USERNAME}
+WORKDIR /workspace
+
+ENV GRADLE_USER_HOME=/home/${USERNAME}/.gradle
+ENV MAVEN_CONFIG=/home/${USERNAME}/.m2
+
+CMD ["sleep", "infinity"]

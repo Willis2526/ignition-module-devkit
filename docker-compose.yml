@@ -1,0 +1,42 @@
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+        USERNAME: dev
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - gradle-cache:/home/dev/.gradle
+      - m2-cache:/home/dev/.m2
+    environment:
+      GRADLE_USER_HOME: /home/dev/.gradle
+      MAVEN_CONFIG: /home/dev/.m2
+    stdin_open: true
+    tty: true
+
+  gateway:
+    image: inductiveautomation/ignition:${IGNITION_VERSION:-latest}
+    profiles:
+      - gateway
+    ports:
+      - "18088:8088"
+      - "18000:8000"
+    environment:
+      ACCEPT_IGNITION_EULA: "Y"
+      GATEWAY_ADMIN_PASSWORD: "${GATEWAY_ADMIN_PASSWORD:-password}"
+      IGNITION_EDITION: standard
+    volumes:
+      - gateway-data:/usr/local/bin/ignition/data
+    command: >
+      -n Ignition-module-dev -d --
+      -Dignition.allowunsignedmodules=true
+      -Dia.developer.moduleupload=true
+
+volumes:
+  gradle-cache:
+  m2-cache:
+  gateway-data:
